@@ -197,34 +197,34 @@ resource "google_compute_network_attachment" "psc_network_attachment" {
   subnetworks           = [google_compute_subnetwork.intf_subnet.id]
 }
 
-# # Agent Gateway - Ingress
-# resource "google_network_services_agent_gateway" "ingress_gateway" {
-#   provider = google-beta
-#   name     = "${var.prefix}-ingress-gateway"
-#   location = var.location
-#   protocols = ["MCP"]
-#   google_managed {
-#     governed_access_path = "CLIENT_TO_AGENT"
-#   }
-#   depends_on = [google_project_service.networkservices]
-# }
-# 
-# # Agent Gateway - Egress
-# resource "google_network_services_agent_gateway" "egress_gateway" {
-#   provider = google-beta
-#   name     = "${var.prefix}-egress-gateway"
-#   location = var.location
-#   protocols = ["MCP"]
-#   google_managed {
-#     governed_access_path = "AGENT_TO_ANYWHERE"
-#   }
-#   depends_on = [google_project_service.networkservices]
-#   network_config {
-#     egress {
-#       network_attachment = google_compute_network_attachment.psc_network_attachment.id
-#     }
-#   }
-# }
+# Agent Gateway - Ingress
+resource "google_network_services_agent_gateway" "ingress_gateway" {
+  provider = google-beta
+  name     = "${var.prefix}-ingress-gateway"
+  location = var.location
+  protocols = ["MCP"]
+  google_managed {
+    governed_access_path = "CLIENT_TO_AGENT"
+  }
+  depends_on = [google_project_service.networkservices]
+}
+
+# Agent Gateway - Egress
+resource "google_network_services_agent_gateway" "egress_gateway" {
+  provider = google-beta
+  name     = "${var.prefix}-egress-gateway"
+  location = var.location
+  protocols = ["MCP"]
+  google_managed {
+    governed_access_path = "AGENT_TO_ANYWHERE"
+  }
+  depends_on = [google_project_service.networkservices]
+  network_config {
+    egress {
+      network_attachment = google_compute_network_attachment.psc_network_attachment.id
+    }
+  }
+}
 
 module "lens_model_armor" {
   source = "./modules/lens_model_armor"
