@@ -64,6 +64,9 @@ steps:
         # Install python3-venv and rsync which are required for venv and syncing
         apt-get update && apt-get install -y python3-venv rsync
         
+        # Fix sync-app-bundle.sh to exclude 'app/' to prevent infinite recursion
+        python3 -c "import pathlib; p = pathlib.Path('agentic-lens/sync-app-bundle.sh'); p.write_text(p.read_text().replace(\"  --exclude 'migration/'\", \"  --exclude 'migration/'\n  --exclude 'app/'\"))"
+
         # Sync the app directory structure
         ./agentic-lens/sync-app-bundle.sh
         
