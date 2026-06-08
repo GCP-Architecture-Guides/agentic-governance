@@ -45,7 +45,7 @@ steps:
         
         # Populate versions.env for target environment
         echo "PROJECT_ID=$PROJECT_ID" > versions.env
-        echo "REGION=$REGION" >> versions.env
+        echo "REGION=$_REGION" >> versions.env
         echo "MODEL_VERSION=$_MODEL_VERSION" >> versions.env
         echo "ORG_ID=$_ORG_ID" >> versions.env
         
@@ -95,7 +95,7 @@ steps:
         
         gcloud run deploy ai-prism-agent-glass-ui \
           --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" \
-          --region "$REGION" \
+          --region "$_REGION" \
           --network="agentic-vpc" \
           --subnet="agentic-subnet" \
           --vpc-egress="all-traffic" \
@@ -107,7 +107,7 @@ substitutions:
   _STATE_BUCKET: 'agentic-ai-lens-tfstate'
   _MODEL_VERSION: 'gemini-2.5-pro'
   _ORG_ID: '873180247571'
-  REGION: 'us-central1'
+  _REGION: 'us-central1'
 
 options:
   logging: CLOUD_LOGGING_ONLY
