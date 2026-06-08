@@ -99,7 +99,7 @@ steps:
           --network="agentic-vpc" \
           --subnet="agentic-subnet" \
           --vpc-egress="all-traffic" \
-          --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,AGENTIC_LENS_SUPERVISOR_ENGINE=$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0" \
+          --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,AGENTIC_LENS_SUPERVISOR_ENGINE=$$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0" \
           --quiet
 
 # Optional substitution parameters (can be overridden manually when triggering the build)
