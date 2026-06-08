@@ -77,6 +77,10 @@ steps:
         echo "MODEL_VERSION=$_MODEL_VERSION" >> versions.env
         echo "ORG_ID=$_ORG_ID" >> versions.env
         
+        # Remove any pre-existing .venv symlinks/folders to avoid 'File exists' errors
+        rm -rf .venv
+        rm -rf agentic-lens/.venv
+
         # Set up python environment and install google-adk
         python3 -m venv .venv
         .venv/bin/pip install --upgrade pip
