@@ -88,7 +88,7 @@ steps:
         
         python3 -m venv agentic-lens/.venv
         agentic-lens/.venv/bin/pip install --upgrade pip
-        agentic-lens/.venv/bin/pip install -r agentic-lens/requirements.txt
+        agentic-lens/.venv/bin/pip install -r agentic-lens/app/requirements.txt
         
         # Grant permissions and run deployment (skipping preflight verification since this is the initial greenfield deployment)
         export SKIP_PREFLIGHT=1
