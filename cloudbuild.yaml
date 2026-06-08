@@ -93,6 +93,7 @@ steps:
         
         # Grant permissions and run deployment (skipping preflight verification since this is the initial greenfield deployment)
         export SKIP_PREFLIGHT=1
+        export SKIP_EXISTING=1
         ./deploy.sh
         
         # Export the resolved Supervisor Engine ID for the next stage
