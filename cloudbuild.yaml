@@ -96,7 +96,7 @@ steps:
         ./deploy.sh
         
         # Export the resolved Supervisor Engine ID for the next stage
-        .venv/bin/python scripts/get_agent_engine_id.py supervisor > /workspace/supervisor_id.txt
+        .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" supervisor > /workspace/supervisor_id.txt
         echo "Successfully deployed agents. Supervisor ID: $(cat /workspace/supervisor_id.txt)"
 
   # =========================================================================
