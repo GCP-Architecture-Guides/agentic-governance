@@ -288,31 +288,4 @@ module "agent_observability" {
   per_agent_spike_duration_seconds            = var.per_agent_spike_duration_seconds
 }
 
-# Project-level Custom Organization Policy Bindings
-resource "google_project_organization_policy" "enforce_agent_identity" {
-  project    = var.project_id
-  constraint = "custom.enforceAgentIdentityOnly"
-
-  boolean_policy {
-    enforced = true
-  }
-}
-
-resource "google_project_organization_policy" "enforce_secure_agent_engine" {
-  project    = var.project_id
-  constraint = "custom.enforceSecureAgentEngineConfig"
-
-  boolean_policy {
-    enforced = true
-  }
-}
-
-resource "google_project_organization_policy" "enforce_reasoning_engine_agent_gateway_config" {
-  project    = var.project_id
-  constraint = "custom.enforceReasoningEngineAgentGatewayConfig"
-
-  boolean_policy {
-    enforced = true
-  }
-}
 
