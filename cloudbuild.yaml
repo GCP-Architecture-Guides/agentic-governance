@@ -1,5 +1,15 @@
 # Cloud Build pipeline for manual triggering to QA/Production environments
 steps:
+  # 0. Initialize and update git submodules
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'git-submodules'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        git submodule init
+        git submodule update --init --recursive
+
   # =========================================================================
   # PHASE 1: Infrastructure Deployment (Terraform)
   # =========================================================================
@@ -18,9 +28,24 @@ steps:
     id: 'tf-validate'
     args: ['validate']
 
-  # 3. Apply Terraform Configuration (provisions networks, SWP, dashboards, and custom org policies)
+  # 3a. Apply Terraform Configuration (provisions networks, SWP, dashboards, and metrics with alerts disabled)
   - name: 'hashicorp/terraform:1.5.7'
-    id: 'tf-apply'
+    id: 'tf-apply-metrics'
+    args: ['apply', '-var=project_id=$PROJECT_ID', '-var=enable_token_alerts=false', '-var=enable_model_armor_security_alerts=false', '-auto-approve']
+
+  # 3b. Wait for Cloud Monitoring to index newly created metrics
+  - name: 'google/cloud-sdk:slim'
+    id: 'sleep-for-metrics'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Sleeping 90 seconds to allow Cloud Monitoring to index newly created metrics..."
+        sleep 90
+
+  # 3c. Apply Terraform Configuration (enables and creates the alert policies)
+  - name: 'hashicorp/terraform:1.5.7'
+    id: 'tf-apply-alerts'
     args: ['apply', '-var=project_id=$PROJECT_ID', '-auto-approve']
 
   # =========================================================================
@@ -96,8 +121,8 @@ steps:
         gcloud run deploy ai-prism-agent-glass-ui \
           --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" \
           --region "$_REGION" \
-          --network="agentic-vpc" \
-          --subnet="agentic-subnet" \
+          --network="gemini-corp-vpc" \
+          --subnet="gemini-corp-swp-subnet" \
           --vpc-egress="all-traffic" \
           --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,AGENTIC_LENS_SUPERVISOR_ENGINE=$$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0" \
           --quiet

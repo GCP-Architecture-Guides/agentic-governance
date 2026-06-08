@@ -1,0 +1,3 @@
+[submodule "agentic-lens"]
+	path = agentic-lens
+	url = https://github.com/mgaur10/agentic-lens.git
