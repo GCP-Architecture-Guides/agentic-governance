@@ -1,0 +1,4 @@
+google-cloud-aiplatform
+mcp
+authlib
+google-genai

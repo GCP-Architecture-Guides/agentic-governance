@@ -1,0 +1,113 @@
+# Cloud Build pipeline for manual triggering to QA/Production environments
+steps:
+  # =========================================================================
+  # PHASE 1: Infrastructure Deployment (Terraform)
+  # =========================================================================
+
+  # 1. Initialize Terraform (using GCS backend for state management)
+  - name: 'hashicorp/terraform:1.5.7'
+    id: 'tf-init'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        terraform init -backend-config="bucket=$_STATE_BUCKET"
+
+  # 2. Validate Terraform Configuration
+  - name: 'hashicorp/terraform:1.5.7'
+    id: 'tf-validate'
+    args: ['validate']
+
+  # 3. Apply Terraform Configuration (provisions networks, SWP, dashboards, and custom org policies)
+  - name: 'hashicorp/terraform:1.5.7'
+    id: 'tf-apply'
+    args: ['apply', '-var=project_id=$PROJECT_ID', '-auto-approve']
+
+  # =========================================================================
+  # PHASE 2: Reasoning Engine Deployments (Vertex AI)
+  # =========================================================================
+
+  # 4. Deploy all 12 Reasoning Engines to Vertex AI
+  - name: 'google/cloud-sdk:slim'
+    id: 'deploy-agents'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Set quota project to prevent transient gRPC quota blocks
+        gcloud auth application-default set-quota-project $PROJECT_ID
+        
+        # Sync the app directory structure
+        ./agentic-lens/sync-app-bundle.sh
+        
+        # Change into the synced app directory to install deps and deploy
+        cd agentic-lens/app
+        
+        # Populate versions.env for target environment
+        echo "PROJECT_ID=$PROJECT_ID" > versions.env
+        echo "REGION=$REGION" >> versions.env
+        echo "MODEL_VERSION=$_MODEL_VERSION" >> versions.env
+        echo "ORG_ID=$_ORG_ID" >> versions.env
+        
+        # Set up python environment and install google-adk
+        python3 -m venv .venv
+        .venv/bin/pip install --upgrade pip
+        .venv/bin/pip install -r requirements.txt
+        
+        python3 -m venv agentic-lens/.venv
+        agentic-lens/.venv/bin/pip install --upgrade pip
+        agentic-lens/.venv/bin/pip install -r agentic-lens/requirements.txt
+        
+        # Grant permissions and run deployment
+        ./deploy.sh
+        
+        # Export the resolved Supervisor Engine ID for the next stage
+        .venv/bin/python scripts/get_agent_engine_id.py supervisor > /workspace/supervisor_id.txt
+        echo "Successfully deployed agents. Supervisor ID: $(cat /workspace/supervisor_id.txt)"
+
+  # =========================================================================
+  # PHASE 3: App Container Build & Deploy (Cloud Run)
+  # =========================================================================
+
+  # 5. Build the Glass UI Docker container using Cloud Build docker runner
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-glass-ui-image'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd agentic-lens/app
+        docker build -t "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" -f Dockerfile_glass_ui .
+
+  # 6. Push the built image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-glass-ui-image'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA']
+
+  # 7. Deploy to Cloud Run (with Direct VPC Egress for edge routing through SWP)
+  - name: 'google/cloud-sdk:slim'
+    id: 'deploy-glass-ui-to-run'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SUPERVISOR_ENGINE="projects/$PROJECT_ID/locations/us-central1/reasoningEngines/$(cat /workspace/supervisor_id.txt)"
+        
+        gcloud run deploy ai-prism-agent-glass-ui \
+          --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" \
+          --region "$REGION" \
+          --network="agentic-vpc" \
+          --subnet="agentic-subnet" \
+          --vpc-egress="all-traffic" \
+          --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,AGENTIC_LENS_SUPERVISOR_ENGINE=$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0" \
+          --quiet
+
+# Optional substitution parameters (can be overridden manually when triggering the build)
+substitutions:
+  _STATE_BUCKET: 'agentic-ai-lens-tfstate'
+  _MODEL_VERSION: 'gemini-2.5-pro'
+  _ORG_ID: '873180247571'
+  REGION: 'us-central1'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

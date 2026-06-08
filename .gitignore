@@ -1,0 +1,68 @@
+# --- Local deploy outputs (logs, engine IDs, sign-off snapshots) ---
+output/
+agentic-lens/output/
+logs/
+*.log
+
+# --- Operator secrets (templates only in git) ---
+.env
+.env.*
+*.env
+config/migration.env
+agentic-lens/config/migration.env
+agentic-lens/app/.env
+agentic-lens/app/versions.env
+versions.env
+terraform.tfvars
+!*.env.template
+!*.env.example
+
+# --- Python ---
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# --- Node (Glass UI) ---
+node_modules/
+**/node_modules/
+
+# --- Terraform / infra state ---
+.terraform/
+**/.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+tfplan
+*.tfplan
+*.tfvars
+!*.tfvars.example
+!terraform.tfvars.example
+
+# --- Agent Engine deploy artifacts (per project) ---
+**/.agent_engine_config.json
+
+# --- Local database and test resources ---
+*.db
+*.db-journal
+agentic-lens/app/**/*.db
+agentic-lens/app/**/*.db-journal
+artifacts/engine-ids-filled.env.example
+artifacts/resource-inventory-filled.csv
+artifacts/*-filled.*
+
+# --- IDE / OS ---
+.cursor/
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
