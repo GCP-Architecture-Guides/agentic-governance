@@ -97,7 +97,7 @@ resource "google_compute_subnetwork" "proxy_subnet" {
 # SWP Subnet
 resource "google_compute_subnetwork" "swp_subnet" {
   name          = "${var.prefix}-swp-subnet"
-  ip_cidr_range = "10.10.10.0/28"
+  ip_cidr_range = "10.10.10.0/24"
   region        = var.location
   network       = google_compute_network.vpc.id
   private_ip_google_access = true
