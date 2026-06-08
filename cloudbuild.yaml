@@ -64,9 +64,6 @@ steps:
         # Install python3-venv and rsync which are required for venv and syncing
         apt-get update && apt-get install -y python3-venv rsync
         
-        # Set quota project to prevent transient gRPC quota blocks
-        gcloud auth application-default set-quota-project $PROJECT_ID
-        
         # Sync the app directory structure
         ./agentic-lens/sync-app-bundle.sh
         
