@@ -92,6 +92,10 @@ steps:
         agentic-lens/.venv/bin/pip install -r /workspace/agent/requirements.txt
         
         # Grant permissions and run deployment (skipping preflight verification since this is the initial greenfield deployment)
+        export PROJECT_ID="$PROJECT_ID"
+        export REGION="$_REGION"
+        export MODEL_VERSION="$_MODEL_VERSION"
+        export ORG_ID="$_ORG_ID"
         export SKIP_PREFLIGHT=1
         export SKIP_EXISTING=1
         ./deploy.sh
