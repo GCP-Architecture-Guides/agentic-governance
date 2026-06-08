@@ -130,7 +130,12 @@ steps:
     args:
       - '-c'
       - |
-        SUPERVISOR_ENGINE="projects/$PROJECT_ID/locations/us-central1/reasoningEngines/$(cat /workspace/supervisor_id.txt)"
+        SUP_ID=$$(cat /workspace/supervisor_id.txt)
+        if [[ "$$SUP_ID" == projects/* ]]; then
+          SUPERVISOR_ENGINE="$$SUP_ID"
+        else
+          SUPERVISOR_ENGINE="projects/$PROJECT_ID/locations/us-central1/reasoningEngines/$$SUP_ID"
+        fi
         
         gcloud run deploy ai-prism-agent-glass-ui \
           --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" \
