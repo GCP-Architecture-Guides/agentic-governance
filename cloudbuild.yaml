@@ -101,26 +101,7 @@ steps:
         agentic-lens/.venv/bin/pip install -r /workspace/agent/requirements.txt
         
         # Patch ADK CLI to ensure query and stream_query are exported, required by Agent Gateway
-        cat << 'EOF' > patch_cli.py
-import sys
-path = sys.argv[1]
-with open(path, "r") as f:
-    text = f.read()
-
-part1 = text.split("_AGENT_ENGINE_CLASS_METHODS = [")[0]
-part2 = "def _resolve_project(" + text.split("def _resolve_project(")[1]
-
-new_methods = """_AGENT_ENGINE_CLASS_METHODS = [
-    {"name": "query", "description": "Standard Vertex AI query method.", "api_mode": "", "parameters": {"type": "object", "properties": {"message": {"type": "string"}, "session_id": {"type": "string"}}}},
-    {"name": "stream_query", "description": "Standard Vertex AI stream_query method.", "api_mode": "stream", "parameters": {"type": "object", "properties": {"message": {"type": "string"}, "session_id": {"type": "string"}}}}
-]
-
-"""
-
-with open(path, "w") as f:
-    f.write(part1 + new_methods + part2)
-EOF
-        .venv/bin/python patch_cli.py $$(find agentic-lens/.venv -name cli_deploy.py | head -n 1)
+        .venv/bin/python scripts/patch_cli.py $$(find agentic-lens/.venv -name cli_deploy.py | head -n 1)
 
         # Grant permissions and run deployment (skipping preflight verification since this is the initial greenfield deployment)
         export PROJECT_ID="$PROJECT_ID"
