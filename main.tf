@@ -814,7 +814,7 @@ resource "google_project_iam_member" "iap_invoker_project" {
 
 resource "google_bigquery_dataset" "telemetry_dataset" {
   dataset_id                  = "prism_telemetry"
-  location                    = var.region
+  location                    = var.location
   description                 = "Dataset for Agentic Prism telemetry and usage logs"
 }
 
