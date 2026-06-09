@@ -74,6 +74,11 @@ resource "google_project_service" "dlp" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "iap" {
+  service = "iap.googleapis.com"
+  disable_on_destroy = false
+}
+
 resource "google_artifact_registry_repository" "prism_glass_ui" {
   location      = var.location
   repository_id = "prism-glass-ui"
@@ -407,7 +412,7 @@ resource "google_network_services_authz_extension" "iap_extension" {
   timeout     = "1s"
   wire_format = "EXT_AUTHZ_GRPC"
 
-  depends_on = [google_project_service.networkservices]
+  depends_on = [google_project_service.networkservices, google_project_service.iap]
 }
 
 # --- Ingress Authz Policies ---
