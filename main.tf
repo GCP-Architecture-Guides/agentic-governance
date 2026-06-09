@@ -716,7 +716,6 @@ resource "google_compute_backend_service" "glass_ui_backend" {
   name                  = "${var.prefix}-glass-ui-backend"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   protocol              = "HTTP"
-  timeout_sec           = 1800
 
   backend {
     group = google_compute_region_network_endpoint_group.glass_ui_neg.id
