@@ -151,7 +151,7 @@ steps:
           RUN_SERVICE_NAME="ai-prism-agent-glass-ui"
         fi
         
-        gcloud run deploy $RUN_SERVICE_NAME \
+        gcloud run deploy $$RUN_SERVICE_NAME \
           --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$BUILD_ID" \
           --region "$_REGION" \
           --network="gemini-corp-vpc" \
