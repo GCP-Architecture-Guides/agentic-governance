@@ -182,7 +182,7 @@ resource "google_network_security_gateway_security_policy_rule" "allow_list" {
   enabled  = true
   priority = 10
   basic_profile = "ALLOW"
-  session_matcher = "host() == 'docs.cloud.google.com' || host() == 'github.com' || host().endsWith('.github.com') || host().endsWith('.githubusercontent.com') || host() == 'aiplatform.googleapis.com' || host().endsWith('.googleapis.com') || host() == 'cloudresourcemanager.googleapis.com' || host() == 'secretmanager.googleapis.com'"
+  session_matcher = "host() == 'docs.cloud.google.com' || host() == 'github.com' || host().endsWith('.github.com') || host().endsWith('.githubusercontent.com') || host() == 'aiplatform.googleapis.com' || host().endsWith('.googleapis.com') || host() == 'cloudresourcemanager.googleapis.com' || host() == 'secretmanager.googleapis.com' || host() == 'cloudasset.googleapis.com' || host() == 'discoveryengine.googleapis.com' || host() == 'www.google.com' || host() == 'terraform.io' || host() == '240.0.0.2'"
 }
 
 # SWP Gateway
