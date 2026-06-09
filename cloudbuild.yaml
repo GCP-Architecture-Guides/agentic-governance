@@ -154,7 +154,6 @@ steps:
 
 # Optional substitution parameters (can be overridden manually when triggering the build)
 substitutions:
-  _STATE_BUCKET: 'agentic-ai-lens-tfstate'
   _MODEL_VERSION: 'gemini-2.5-pro'
   _ORG_ID: '873180247571'
   _REGION: 'us-central1'
