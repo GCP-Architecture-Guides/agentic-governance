@@ -120,12 +120,12 @@ steps:
       - '-c'
       - |
         cd agentic-lens/app
-        docker build -t "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" -f Dockerfile_glass_ui .
+        docker build -t "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$BUILD_ID" -f Dockerfile_glass_ui .
 
   # 6. Push the built image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-glass-ui-image'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA']
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$BUILD_ID']
 
   # 7. Deploy to Cloud Run (with Direct VPC Egress for edge routing through SWP)
   - name: 'google/cloud-sdk:slim'
@@ -141,8 +141,18 @@ steps:
           SUPERVISOR_ENGINE="projects/$PROJECT_ID/locations/us-central1/reasoningEngines/$$SUP_ID"
         fi
         
-        gcloud run deploy ai-prism-agent-glass-ui \
-          --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$SHORT_SHA" \
+        if [[ "$PROJECT_ID" == "agentic-security-dev" ]]; then
+          RUN_SERVICE_NAME="dev-ai-lens-ui"
+        elif [[ "$PROJECT_ID" == "agentic-security-qa" ]]; then
+          RUN_SERVICE_NAME="qa-ai-lens-ui"
+        elif [[ "$PROJECT_ID" == "agentic-security-prd" ]]; then
+          RUN_SERVICE_NAME="prd-ai-lens-ui"
+        else
+          RUN_SERVICE_NAME="ai-prism-agent-glass-ui"
+        fi
+        
+        gcloud run deploy $RUN_SERVICE_NAME \
+          --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$BUILD_ID" \
           --region "$_REGION" \
           --network="gemini-corp-vpc" \
           --subnet="gemini-corp-swp-subnet" \
