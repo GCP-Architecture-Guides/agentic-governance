@@ -110,6 +110,10 @@ steps:
         export ORG_ID="$_ORG_ID"
         export SKIP_PREFLIGHT=1
         export SKIP_EXISTING=0
+        
+        # Dynamically replace the legacy hardcoded 'agentic-ai-lens' project ID with the current environment's PROJECT_ID in all agent configs
+        find agentic-lens/agents -name ".agent_engine_config.json" -exec sed -i "s/agentic-ai-lens/$$PROJECT_ID/g" {} +
+        
         DEPLOY_PARALLEL=2 ./deploy.sh
         
         # Export the resolved Supervisor Engine ID for the next stage
