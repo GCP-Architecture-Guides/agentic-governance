@@ -1,1 +1,5 @@
+project_id = "agentic-security-dev"
+region     = "us-central1"
+prefix     = "gemini-corp"
+domain     = ""
 cloud_run_service_name = "dev-ai-lens-ui"
