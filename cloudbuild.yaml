@@ -147,6 +147,8 @@ steps:
           --network="gemini-corp-vpc" \
           --subnet="gemini-corp-swp-subnet" \
           --vpc-egress="all-traffic" \
+          --ingress="internal-and-cloud-load-balancing" \
+          --no-allow-unauthenticated \
           --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,AGENTIC_LENS_SUPERVISOR_ENGINE=$$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0" \
           --quiet
 
