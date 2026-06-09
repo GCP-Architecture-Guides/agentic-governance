@@ -447,6 +447,8 @@ resource "google_network_security_authz_policy" "ingress_iap_policy" {
       resources = [google_network_services_authz_extension.iap_extension.id]
     }
   }
+
+  depends_on = [google_network_security_authz_policy.ingress_ma_policy]
 }
 
 # --- Egress Authz Policies ---
@@ -467,6 +469,8 @@ resource "google_network_security_authz_policy" "egress_ma_policy" {
       resources = [google_network_services_authz_extension.ma_extension.id]
     }
   }
+
+  depends_on = [google_network_security_authz_policy.ingress_iap_policy]
 
   http_rules {
     to {
@@ -513,6 +517,8 @@ resource "google_network_security_authz_policy" "egress_iap_policy" {
     }
   }
 
+  depends_on = [google_network_security_authz_policy.egress_ma_policy]
+
   http_rules {
     to {
       operations {
@@ -535,6 +541,8 @@ resource "google_network_security_authz_policy" "egress_allow_googleapis" {
   target {
     resources = [google_network_services_agent_gateway.egress_gateway.id]
   }
+
+  depends_on = [google_network_security_authz_policy.egress_iap_policy]
 
   http_rules {
     to {
@@ -560,6 +568,8 @@ resource "google_network_security_authz_policy" "egress_allow_google_web" {
     resources = [google_network_services_agent_gateway.egress_gateway.id]
   }
 
+  depends_on = [google_network_security_authz_policy.egress_allow_googleapis]
+
   http_rules {
     to {
       operations {
@@ -583,6 +593,8 @@ resource "google_network_security_authz_policy" "egress_allow_github" {
   target {
     resources = [google_network_services_agent_gateway.egress_gateway.id]
   }
+
+  depends_on = [google_network_security_authz_policy.egress_allow_google_web]
 
   http_rules {
     to {
@@ -609,6 +621,8 @@ resource "google_network_security_authz_policy" "egress_allow_terraform" {
   target {
     resources = [google_network_services_agent_gateway.egress_gateway.id]
   }
+
+  depends_on = [google_network_security_authz_policy.egress_allow_github]
 
   http_rules {
     to {
