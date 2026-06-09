@@ -35,7 +35,7 @@ steps:
   # 3a. Apply Terraform Configuration (provisions networks, SWP, dashboards, and metrics with alerts disabled)
   - name: 'hashicorp/terraform:1.5.7'
     id: 'tf-apply-metrics'
-    args: ['apply', '-var=project_id=$PROJECT_ID', '-var=enable_token_alerts=false', '-var=enable_model_armor_security_alerts=false', '-auto-approve']
+    args: ['apply', '-var=project_id=$PROJECT_ID', '-var=enable_token_alerts=false', '-var=enable_model_armor_security_alerts=false', '-var=domain=$_DOMAIN', '-var=iap_client_id=$_IAP_CLIENT_ID', '-var=iap_client_secret=$_IAP_CLIENT_SECRET', '-auto-approve']
 
   # 3b. Wait for Cloud Monitoring to index newly created metrics
   - name: 'google/cloud-sdk:slim'
@@ -50,7 +50,7 @@ steps:
   # 3c. Apply Terraform Configuration (enables and creates the alert policies)
   - name: 'hashicorp/terraform:1.5.7'
     id: 'tf-apply-alerts'
-    args: ['apply', '-var=project_id=$PROJECT_ID', '-auto-approve']
+    args: ['apply', '-var=project_id=$PROJECT_ID', '-var=domain=$_DOMAIN', '-var=iap_client_id=$_IAP_CLIENT_ID', '-var=iap_client_secret=$_IAP_CLIENT_SECRET', '-auto-approve']
 
   # =========================================================================
   # PHASE 2: Reasoning Engine Deployments (Vertex AI)
@@ -156,6 +156,9 @@ substitutions:
   _MODEL_VERSION: 'gemini-2.5-pro'
   _ORG_ID: '873180247571'
   _REGION: 'us-central1'
+  _DOMAIN: ''
+  _IAP_CLIENT_ID: ''
+  _IAP_CLIENT_SECRET: ''
 
 options:
   logging: CLOUD_LOGGING_ONLY
