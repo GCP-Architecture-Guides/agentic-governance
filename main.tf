@@ -389,7 +389,6 @@ resource "google_network_services_authz_extension" "ma_extension" {
   project     = var.project_id
   service     = "modelarmor.us-central1.rep.googleapis.com"
   timeout     = "1s"
-  wire_format = "EXT_AUTHZ_GRPC"
 
   metadata = {
     model_armor_settings = jsonencode([
@@ -410,7 +409,6 @@ resource "google_network_services_authz_extension" "iap_extension" {
   project     = var.project_id
   service     = "iap.googleapis.com"
   timeout     = "1s"
-  wire_format = "EXT_AUTHZ_GRPC"
 
   depends_on = [google_project_service.networkservices, google_project_service.iap]
 }
