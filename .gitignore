@@ -46,6 +46,7 @@ tfplan
 *.tfvars
 !*.tfvars.example
 !terraform.tfvars.example
+!envs/*.terraform.tfvars
 
 # --- Agent Engine deploy artifacts (per project) ---
 **/.agent_engine_config.json
