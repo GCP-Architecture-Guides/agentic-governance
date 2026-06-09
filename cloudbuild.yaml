@@ -106,7 +106,7 @@ steps:
         export MODEL_VERSION="$_MODEL_VERSION"
         export ORG_ID="$_ORG_ID"
         export SKIP_PREFLIGHT=1
-        export SKIP_EXISTING=1
+        export SKIP_EXISTING=0
         ./deploy.sh
         
         # Export the resolved Supervisor Engine ID for the next stage
