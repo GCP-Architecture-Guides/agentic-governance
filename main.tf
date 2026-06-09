@@ -720,11 +720,14 @@ data "google_project" "project" {}
 
 # --- Serverless NEG ---
 resource "google_compute_region_network_endpoint_group" "glass_ui_neg" {
-  name                  = "${var.prefix}-glass-ui-neg"
+  name                  = "${var.prefix}-${var.cloud_run_service_name}-neg"
   region                = var.location
   network_endpoint_type = "SERVERLESS"
   cloud_run {
     service = var.cloud_run_service_name
+  }
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
