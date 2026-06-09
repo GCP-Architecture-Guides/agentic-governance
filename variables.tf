@@ -256,3 +256,22 @@ variable "org_monitored_project_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "domain" {
+  description = "The custom domain pointing to the Load Balancer IP."
+  type        = string
+  default     = ""
+}
+
+variable "iap_client_id" {
+  description = "OAuth 2.0 Client ID for IAP."
+  type        = string
+  default     = ""
+}
+
+variable "iap_client_secret" {
+  description = "OAuth 2.0 Client Secret for IAP."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
