@@ -808,4 +808,20 @@ resource "google_project_iam_member" "iap_invoker_project" {
   member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-iap.iam.gserviceaccount.com"
 }
 
+# =========================================================================
+# BIGQUERY DATASET FOR TELEMETRY
+# =========================================================================
+
+resource "google_bigquery_dataset" "telemetry_dataset" {
+  dataset_id                  = "prism_telemetry"
+  location                    = var.region
+  description                 = "Dataset for Agentic Prism telemetry and usage logs"
+}
+
+resource "google_project_iam_member" "compute_sa_bigquery_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}
+
 
