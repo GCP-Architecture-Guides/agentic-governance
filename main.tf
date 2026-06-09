@@ -738,13 +738,10 @@ resource "google_compute_backend_service" "glass_ui_backend" {
     group = google_compute_region_network_endpoint_group.glass_ui_neg.id
   }
 
-  dynamic "iap" {
-    for_each = var.iap_client_id != "" && var.iap_client_secret != "" ? [1] : []
-    content {
-      enabled              = true
-      oauth2_client_id     = var.iap_client_id
-      oauth2_client_secret = var.iap_client_secret
-    }
+  iap {
+    enabled              = true
+    oauth2_client_id     = var.iap_client_id != "" ? var.iap_client_id : null
+    oauth2_client_secret = var.iap_client_secret != "" ? var.iap_client_secret : null
   }
 }
 
@@ -803,7 +800,6 @@ resource "google_compute_global_forwarding_rule" "glass_ui_http_forwarding_rule"
 
 # --- Project IAM Policy for IAP invoker ---
 resource "google_project_iam_member" "iap_invoker_project" {
-  count   = var.iap_client_id != "" && var.iap_client_secret != "" ? 1 : 0
   project = var.project_id
   role    = "roles/run.invoker"
   member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-iap.iam.gserviceaccount.com"
