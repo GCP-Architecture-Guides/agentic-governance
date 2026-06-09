@@ -107,7 +107,7 @@ steps:
         export ORG_ID="$_ORG_ID"
         export SKIP_PREFLIGHT=1
         export SKIP_EXISTING=0
-        ./deploy.sh
+        DEPLOY_PARALLEL=2 ./deploy.sh
         
         # Export the resolved Supervisor Engine ID for the next stage
         .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" supervisor > /workspace/supervisor_id.txt
