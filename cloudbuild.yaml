@@ -156,7 +156,6 @@ substitutions:
   _MODEL_VERSION: 'gemini-2.5-pro'
   _ORG_ID: '873180247571'
   _REGION: 'us-central1'
-  _DOMAIN: ''
   _IAP_CLIENT_ID: ''
   _IAP_CLIENT_SECRET: ''
 
