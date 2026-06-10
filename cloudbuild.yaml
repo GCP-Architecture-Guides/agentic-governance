@@ -283,6 +283,14 @@ steps:
         .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" supervisor > /workspace/supervisor_id.txt
         echo "Successfully deployed agents. Supervisor ID: $$(cat /workspace/supervisor_id.txt)"
 
+        # Export other engine IDs so deploy-glass-ui-to-run can set them as Cloud Run env vars.
+        # This avoids expensive Vertex AI list() lookups on every Cloud Run request.
+        .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" chat > /workspace/chat_engine_id.txt 2>/dev/null || true
+        .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" eng_lead > /workspace/eng_lead_engine_id.txt 2>/dev/null || true
+        .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" xray_manager > /workspace/xray_manager_engine_id.txt 2>/dev/null || true
+        .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" events > /workspace/events_engine_id.txt 2>/dev/null || true
+        echo "Engine IDs captured: chat=$$(cat /workspace/chat_engine_id.txt 2>/dev/null) eng=$$(cat /workspace/eng_lead_engine_id.txt 2>/dev/null) xray=$$(cat /workspace/xray_manager_engine_id.txt 2>/dev/null) events=$$(cat /workspace/events_engine_id.txt 2>/dev/null)"
+
   # =========================================================================
   # PHASE 3: App Container Build & Deploy (Cloud Run)
   # =========================================================================
@@ -326,6 +334,19 @@ steps:
           RUN_SERVICE_NAME="ai-prism-agent-glass-ui"
         fi
         
+        # Read all engine IDs written by deploy-agents step so we can pass them
+        # directly to Cloud Run — avoids expensive Vertex AI list() calls on each request.
+        CHAT_ID=$(cat /workspace/chat_engine_id.txt 2>/dev/null || echo "")
+        ENG_ID=$(cat /workspace/eng_lead_engine_id.txt 2>/dev/null || echo "")
+        XRAY_ID=$(cat /workspace/xray_manager_engine_id.txt 2>/dev/null || echo "")
+        EVENTS_ID=$(cat /workspace/events_engine_id.txt 2>/dev/null || echo "")
+
+        EXTRA_ENVS="GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=$_REGION,AGENTIC_LENS_SUPERVISOR_ENGINE=$$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0"
+        [[ -n "$$CHAT_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,CHAT_ENGINE_ID=$$CHAT_ID"
+        [[ -n "$$ENG_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,ENG_ENGINE_ID=$$ENG_ID"
+        [[ -n "$$XRAY_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,XRAY_ENGINE_ID=$$XRAY_ID"
+        [[ -n "$$EVENTS_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,EVENTS_ENGINE_ID=$$EVENTS_ID"
+
         gcloud run deploy $$RUN_SERVICE_NAME \
           --image "us-central1-docker.pkg.dev/$PROJECT_ID/prism-glass-ui/ai-prism-agent-glass-ui:$BUILD_ID" \
           --region "$_REGION" \
@@ -335,7 +356,7 @@ steps:
           --ingress="all" \
           --iap \
           --allow-unauthenticated \
-          --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,AGENTIC_LENS_SUPERVISOR_ENGINE=$$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0" \
+          --set-env-vars="$$EXTRA_ENVS" \
           --quiet
 
 # Optional substitution parameters (can be overridden manually when triggering the build)
