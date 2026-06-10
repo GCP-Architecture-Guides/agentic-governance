@@ -327,3 +327,7 @@ substitutions:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+# 2-hour build timeout: PRD uses DEPLOY_PARALLEL=1 (serial) which takes ~48 min for 12 agents
+# + ~20 min TF steps + ~10 min Cloud Run build = ~78 min total.
+timeout: 7200s
