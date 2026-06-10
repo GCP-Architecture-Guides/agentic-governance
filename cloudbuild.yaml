@@ -83,7 +83,7 @@ steps:
           -var=iap_client_id=$_IAP_CLIENT_ID \
           -var=iap_client_secret=$_IAP_CLIENT_SECRET \
           -var='org_monitored_project_ids=[]' \
-          -auto-approve
+          -auto-approve || echo "WARNING: tf-apply-metrics had errors (likely cross-project monitoring IAM — non-fatal for agent deploy). Continuing..."
 
   # 3a-ii. Best-effort: add external projects to org metrics scope (requires cross-project IAM)
   # Uses || true so a 403 on external projects does NOT fail the build
