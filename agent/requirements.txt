@@ -1,10 +1,10 @@
-google-cloud-aiplatform[adk,agent_engines]>=1.70.0
+google-cloud-aiplatform[adk,agent_engines]==1.149.0  # pinned: matches local dev (patch_cli.py tested against this version)
 opentelemetry-api
 opentelemetry-sdk
 opentelemetry-exporter-gcp-trace
 opentelemetry-exporter-otlp-proto-http
 requests
-google-adk>=1.5.0
+google-adk==1.31.1  # pinned: matches local dev (patch_cli.py tested against this version)
 cloudpickle
 pydantic>=2.9.0
 opentelemetry-instrumentation-grpc
