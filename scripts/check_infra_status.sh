@@ -313,10 +313,24 @@ check_cmd "Global IP (gemini-corp-glass-ui-ip)" \
   "gcloud compute addresses describe gemini-corp-glass-ui-ip --global --project=$PROJECT --format='value(address)'"
 check_cmd "URL Map" \
   "gcloud compute url-maps describe gemini-corp-glass-ui-url-map --global --project=$PROJECT --format='value(name)'"
-check_cmd "HTTP Proxy" \
-  "gcloud compute target-http-proxies describe gemini-corp-glass-ui-http-proxy --global --project=$PROJECT --format='value(name)'"
-check_cmd "Forwarding Rule" \
-  "gcloud compute forwarding-rules describe gemini-corp-glass-ui-http-forwarding-rule --global --project=$PROJECT --format='value(name)'"
+
+# HTTP proxy — some envs use HTTPS (PRD). Check both.
+HTTP_PROXY=$(gcloud compute target-http-proxies describe gemini-corp-glass-ui-http-proxy \
+  --global --project="$PROJECT" --format="value(name)" 2>/dev/null || true)
+HTTPS_PROXY=$(gcloud compute target-https-proxies describe gemini-corp-glass-ui-https-proxy \
+  --global --project="$PROJECT" --format="value(name)" 2>/dev/null || true)
+if   [ -n "$HTTP_PROXY" ];  then row_ok  "HTTP Proxy"  "\`$HTTP_PROXY\`"
+elif [ -n "$HTTPS_PROXY" ]; then row_ok  "HTTPS Proxy" "\`$HTTPS_PROXY\` (TLS termination)"
+else row_fail "HTTP/HTTPS Proxy" "not found"; fi
+
+# Forwarding rule — same, check HTTP then HTTPS name
+HTTP_FWD=$(gcloud compute forwarding-rules describe gemini-corp-glass-ui-http-forwarding-rule \
+  --global --project="$PROJECT" --format="value(name)" 2>/dev/null || true)
+HTTPS_FWD=$(gcloud compute forwarding-rules describe gemini-corp-glass-ui-https-forwarding-rule \
+  --global --project="$PROJECT" --format="value(name)" 2>/dev/null || true)
+if   [ -n "$HTTP_FWD" ];  then row_ok  "Forwarding Rule (HTTP)"  "\`$HTTP_FWD\`"
+elif [ -n "$HTTPS_FWD" ]; then row_ok  "Forwarding Rule (HTTPS)" "\`$HTTPS_FWD\` (port 443)"
+else row_fail "Forwarding Rule" "not found"; fi
 echo ""
 
 # ===========================================================================
