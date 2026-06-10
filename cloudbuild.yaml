@@ -184,31 +184,23 @@ steps:
         export SKIP_PREFLIGHT=1
         export SKIP_EXISTING=0
 
-        # Pre-deploy cleanup: delete any reasoning engines in bad/stuck state from
-        # previous failed builds. Without this, the deploy tool calls UpdateReasoningEngine
-        # on stuck engines → code 3 INVALID_ARGUMENT. Engines in ACTIVE state are safe
-        # to update, so only UNKNOWN/empty-state engines are removed.
-        # Batched in groups of 5 with 65s pauses to respect 6 writes/min quota.
-        # Skipped for agentic-ai-lens (Dev) to protect live environment.
+        # Pre-deploy cleanup: delete stuck/UNKNOWN engines from prior failed builds.
+        # Without this the deploy tool finds them by display_name and calls
+        # UpdateReasoningEngine which Vertex AI rejects (code 3) on non-ACTIVE engines.
+        # Skipped for agentic-ai-lens (Dev) to protect live engines.
         if [ "$PROJECT_ID" != "agentic-ai-lens" ]; then
           echo "--- Pre-deploy: checking for stuck reasoning engines in $PROJECT_ID ---"
-          ENGINE_LIST=$(curl -s \
-            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-            "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/$PROJECT_ID/locations/$_REGION/reasoningEngines" \
-            | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-engines=d.get('reasoningEngines',[])
-print(f'Found {len(engines)} existing engines')
-bad=[e[\"name\"].split(\"/\")[-1] for e in engines if e.get(\"state\",\"UNKNOWN\") not in (\"ACTIVE\",)]
-print(\" \".join(bad))
-" 2>/dev/null)
-          echo "$ENGINE_LIST" | head -1
-          STUCK_IDS=$(echo "$ENGINE_LIST" | tail -1)
+          TOKEN=$(gcloud auth print-access-token)
+          RESP=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/$PROJECT_ID/locations/$_REGION/reasoningEngines")
+          STUCK_IDS=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); bad=[e['name'].split('/')[-1] for e in d.get('reasoningEngines',[]) if e.get('state','UNKNOWN') not in ('ACTIVE',)]; print(' '.join(bad))" 2>/dev/null || echo "")
+          TOTAL=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('reasoningEngines',[])))" 2>/dev/null || echo "0")
+          echo "  Found $TOTAL existing engines. Stuck IDs: ${STUCK_IDS:-none}"
           COUNT=0
           for EID in $STUCK_IDS; do
+            TOKEN=$(gcloud auth print-access-token)
             curl -s -X DELETE \
-              -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+              -H "Authorization: Bearer $TOKEN" \
               "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/$PROJECT_ID/locations/$_REGION/reasoningEngines/$EID?force=true" \
               > /dev/null 2>&1
             echo "  Deleted stuck engine: $EID"
