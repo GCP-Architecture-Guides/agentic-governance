@@ -249,7 +249,14 @@ steps:
         # Apply the Vertex Gateway Wrapper to all agents to bypass the SDK 1.75 memory interceptor and expose 'query'
         .venv/bin/python scripts/patch_agent_wrapper.py
 
-        DEPLOY_PARALLEL=2 ./deploy.sh
+        # PRD Vertex AI backend rejects concurrent ReasoningEngine creates (code 13 INTERNAL).
+        # Use DEPLOY_PARALLEL=1 for PRD to serialize deployments and avoid the race condition.
+        # QA/Dev keep DEPLOY_PARALLEL=2 for speed since they have no such backend limit.
+        if [ "$PROJECT_ID" = "agentic-security-prd" ]; then
+          DEPLOY_PARALLEL=1 ./deploy.sh
+        else
+          DEPLOY_PARALLEL=2 ./deploy.sh
+        fi
         
         # Export the resolved Supervisor Engine ID for the next stage
         .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" supervisor > /workspace/supervisor_id.txt
