@@ -79,43 +79,10 @@ resource "google_project_service" "iap" {
   disable_on_destroy = false
 }
 
-# =============================================================================
-# Custom Org Policies — required for Reasoning Engine AGENT_IDENTITY type
-# and agent_gateway_config. Without these, deploy-agents fails (code 3).
-# Must be applied before deploy-agents runs.
-# =============================================================================
-resource "google_org_policy_policy" "enforce_reasoning_engine_agent_gateway_config" {
-  name   = "projects/${var.project_id}/policies/custom.enforceReasoningEngineAgentGatewayConfig"
-  parent = "projects/${var.project_id}"
-
-  spec {
-    rules {
-      enforce = "TRUE"
-    }
-  }
-}
-
-resource "google_org_policy_policy" "enforce_agent_identity_for_reasoning_engine" {
-  name   = "projects/${var.project_id}/policies/custom.enforceAgentIdentityForReasoningEngine"
-  parent = "projects/${var.project_id}"
-
-  spec {
-    rules {
-      enforce = "TRUE"
-    }
-  }
-}
-
-resource "google_org_policy_policy" "enforce_reasoning_engine_otel_config" {
-  name   = "projects/${var.project_id}/policies/custom.enforceReasoningEngineOtelConfig"
-  parent = "projects/${var.project_id}"
-
-  spec {
-    rules {
-      enforce = "TRUE"
-    }
-  }
-}
+# NOTE: Custom org policies (enforceReasoningEngineAgentGatewayConfig,
+# enforceAgentIdentityForReasoningEngine, enforceReasoningEngineOtelConfig)
+# are applied via a best-effort gcloud step in cloudbuild.yaml (apply-org-policies).
+# Cloud Build SA lacks orgpolicy.policies.create — applied with elevated ADC.
 
 resource "google_artifact_registry_repository" "prism_glass_ui" {
   location      = var.location

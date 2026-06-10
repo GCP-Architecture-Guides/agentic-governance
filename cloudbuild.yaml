@@ -99,6 +99,31 @@ steps:
   # PHASE 2: Reasoning Engine Deployments (Vertex AI)
   # =========================================================================
 
+  # 3c. Best-effort: apply custom org policies required for AGENT_IDENTITY + agent_gateway_config
+  # Cloud Build SA lacks orgpolicy.policies.create — uses || true so 403s are non-fatal.
+  # These policies are pre-applied via elevated ADC; this step ensures enforcement on new projects.
+  - name: 'google/cloud-sdk:slim'
+    id: 'apply-org-policies'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Applying custom org policies (best-effort — 403s are non-fatal)..."
+        for POLICY in enforceReasoningEngineAgentGatewayConfig \
+                      enforceAgentIdentityForReasoningEngine \
+                      enforceReasoningEngineOtelConfig; do
+          cat > /tmp/policy_${POLICY}.yaml << EOF
+        name: projects/${PROJECT_ID}/policies/custom.${POLICY}
+        spec:
+          rules:
+          - enforce: true
+        EOF
+          gcloud org-policies set-policy /tmp/policy_${POLICY}.yaml \
+            --project="$PROJECT_ID" \
+            && echo "  ✅ $POLICY" \
+            || echo "  ⚠️  $POLICY skipped (insufficient permissions — pre-applied via ADC)"
+        done
+
   # 4. Deploy all 12 Reasoning Engines to Vertex AI
   - name: 'google/cloud-sdk:slim'
     id: 'deploy-agents'

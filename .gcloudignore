@@ -3,3 +3,18 @@
 *.tfstate
 *.tfstate.backup
 .git
+
+# Python environments (recreated in Cloud Build)
+.venv/
+**/.venv/
+**/agentic-lens/.venv/
+**/app/.venv/
+
+# Staging dirs (created during deploy-agents, not needed as input)
+**/*_staged/
+
+# Local reports and scratch (not needed for build)
+reports/
+**/scratch/
+**/__pycache__/
+**/*.pyc
