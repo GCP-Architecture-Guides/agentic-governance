@@ -47,6 +47,27 @@ steps:
     id: 'tf-validate'
     args: ['validate']
 
+  # 3a-pre. Clear any stale Terraform state lock from a previous interrupted build.
+  # gsutil rm returns non-zero if the lock does not exist — use || true so it never fails the build.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'tf-clear-stale-lock'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ "$PROJECT_ID" = "agentic-security-dev" ]; then
+          BUCKET="${PROJECT_ID}-tf-state"
+        else
+          BUCKET="${PROJECT_ID}-tfstate"
+        fi
+        echo "Checking for stale TF lock in gs://$$BUCKET/default.tflock ..."
+        if gsutil -q stat gs://$$BUCKET/default.tflock 2>/dev/null; then
+          echo "Stale lock found — removing ..."
+          gsutil rm gs://$$BUCKET/default.tflock && echo "✅ Stale TF lock cleared" || echo "⚠️ Could not remove lock (will retry in tf-apply)"
+        else
+          echo "✅ No stale TF lock present"
+        fi
+
   # 3a. Apply Terraform Configuration (provisions networks, SWP, dashboards, and metrics with alerts disabled)
   # NOTE: org_monitored_project_ids set to [] here to skip MonitoredProject creation (done separately below)
   - name: 'hashicorp/terraform:1.5.7'
