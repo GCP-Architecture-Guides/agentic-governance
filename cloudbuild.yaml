@@ -190,28 +190,28 @@ steps:
         # Skipped for agentic-ai-lens (Dev) to protect live engines.
         if [ "$PROJECT_ID" != "agentic-ai-lens" ]; then
           echo "--- Pre-deploy: checking for stuck reasoning engines in $PROJECT_ID ---"
-          TOKEN=$(gcloud auth print-access-token)
-          RESP=$(curl -s -H "Authorization: Bearer $TOKEN" \
+          TOKEN=$$(gcloud auth print-access-token)
+          RESP=$$(curl -s -H "Authorization: Bearer $$TOKEN" \
             "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/$PROJECT_ID/locations/$_REGION/reasoningEngines")
-          STUCK_IDS=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); bad=[e['name'].split('/')[-1] for e in d.get('reasoningEngines',[]) if e.get('state','UNKNOWN') not in ('ACTIVE',)]; print(' '.join(bad))" 2>/dev/null || echo "")
-          TOTAL=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('reasoningEngines',[])))" 2>/dev/null || echo "0")
-          echo "  Found $TOTAL existing engines. Stuck IDs: ${STUCK_IDS:-none}"
+          STUCK_IDS=$$(echo "$$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); bad=[e['name'].split('/')[-1] for e in d.get('reasoningEngines',[]) if e.get('state','UNKNOWN') not in ('ACTIVE',)]; print(' '.join(bad))" 2>/dev/null || echo "")
+          TOTAL=$$(echo "$$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('reasoningEngines',[])))" 2>/dev/null || echo "0")
+          echo "  Found $$TOTAL existing engines. Stuck IDs: $${STUCK_IDS:-none}"
           COUNT=0
-          for EID in $STUCK_IDS; do
-            TOKEN=$(gcloud auth print-access-token)
+          for EID in $$STUCK_IDS; do
+            TOKEN=$$(gcloud auth print-access-token)
             curl -s -X DELETE \
-              -H "Authorization: Bearer $TOKEN" \
-              "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/$PROJECT_ID/locations/$_REGION/reasoningEngines/$EID?force=true" \
+              -H "Authorization: Bearer $$TOKEN" \
+              "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/$PROJECT_ID/locations/$_REGION/reasoningEngines/$$EID?force=true" \
               > /dev/null 2>&1
-            echo "  Deleted stuck engine: $EID"
-            COUNT=$((COUNT+1))
-            if [ $((COUNT % 5)) -eq 0 ]; then
+            echo "  Deleted stuck engine: $$EID"
+            COUNT=$$((COUNT+1))
+            if [ $$((COUNT % 5)) -eq 0 ]; then
               echo "  Rate limit pause (65s)..."
               sleep 65
             fi
           done
-          if [ $COUNT -gt 0 ]; then
-            echo "  Deleted $COUNT stuck engine(s). Waiting 30s before deploy..."
+          if [ $$COUNT -gt 0 ]; then
+            echo "  Deleted $$COUNT stuck engine(s). Waiting 30s before deploy..."
             sleep 30
           else
             echo "  No stuck engines found — clean slate."
@@ -222,28 +222,28 @@ steps:
         # Note: working dir is already agentic-lens/app — so agents are at agentic-lens/agents/ relative to here
         find agentic-lens/agents -name ".agent_engine_config.json" -exec sed -i \
           -e "s|agentic-ai-lens|$PROJECT_ID|g" \
-          -e "s|795375693569|$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')|g" \
+          -e "s|795375693569|$$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')|g" \
           {} +
 
         # Also patch agent_gateway_config if the target env uses different gateway names.
         # Dev (agentic-ai-lens) uses main-ingress-agw / main-egress-agw-v2.
         # QA/PRD TF creates gemini-corp-ingress-gateway / gemini-corp-egress-gateway (from prefix).
         # Detect which gateways actually exist and patch accordingly.
-        INGRESS_GW=$(gcloud network-services agent-gateways list \
+        INGRESS_GW=$$(gcloud network-services agent-gateways list \
           --project="$PROJECT_ID" --location="$_REGION" \
           --format="value(name.basename())" 2>/dev/null | grep -i ingress | head -1 || echo "")
-        EGRESS_GW=$(gcloud network-services agent-gateways list \
+        EGRESS_GW=$$(gcloud network-services agent-gateways list \
           --project="$PROJECT_ID" --location="$_REGION" \
           --format="value(name.basename())" 2>/dev/null | grep -i egress | head -1 || echo "")
-        if [ -n "$INGRESS_GW" ]; then
-          echo "Patching ingress gateway → $INGRESS_GW"
+        if [ -n "$$INGRESS_GW" ]; then
+          echo "Patching ingress gateway → $$INGRESS_GW"
           find agentic-lens/agents -name ".agent_engine_config.json" -exec sed -i \
-            "s|gemini-corp-ingress-gateway|$INGRESS_GW|g; s|main-ingress-agw|$INGRESS_GW|g" {} +
+            "s|gemini-corp-ingress-gateway|$$INGRESS_GW|g; s|main-ingress-agw|$$INGRESS_GW|g" {} +
         fi
-        if [ -n "$EGRESS_GW" ]; then
-          echo "Patching egress gateway → $EGRESS_GW"
+        if [ -n "$$EGRESS_GW" ]; then
+          echo "Patching egress gateway → $$EGRESS_GW"
           find agentic-lens/agents -name ".agent_engine_config.json" -exec sed -i \
-            "s|gemini-corp-egress-gateway|$EGRESS_GW|g; s|main-egress-agw-v2|$EGRESS_GW|g" {} +
+            "s|gemini-corp-egress-gateway|$$EGRESS_GW|g; s|main-egress-agw-v2|$$EGRESS_GW|g" {} +
         fi
 
         # Apply the Vertex Gateway Wrapper to all agents to bypass the SDK 1.75 memory interceptor and expose 'query'
@@ -253,7 +253,7 @@ steps:
         
         # Export the resolved Supervisor Engine ID for the next stage
         .venv/bin/python scripts/get_agent_engine_id.py "$PROJECT_ID" "$_REGION" supervisor > /workspace/supervisor_id.txt
-        echo "Successfully deployed agents. Supervisor ID: $(cat /workspace/supervisor_id.txt)"
+        echo "Successfully deployed agents. Supervisor ID: $$(cat /workspace/supervisor_id.txt)"
 
   # =========================================================================
   # PHASE 3: App Container Build & Deploy (Cloud Run)
