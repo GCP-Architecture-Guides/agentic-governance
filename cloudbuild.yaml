@@ -122,16 +122,16 @@ steps:
         for POLICY in enforceReasoningEngineAgentGatewayConfig \
                       enforceAgentIdentityForReasoningEngine \
                       enforceReasoningEngineOtelConfig; do
-          cat > /tmp/policy_${POLICY}.yaml << EOF
-        name: projects/${PROJECT_ID}/policies/custom.${POLICY}
+          cat > /tmp/policy_$${POLICY}.yaml << EOF
+        name: projects/$PROJECT_ID/policies/custom.$${POLICY}
         spec:
           rules:
           - enforce: true
         EOF
-          gcloud org-policies set-policy /tmp/policy_${POLICY}.yaml \
+          gcloud org-policies set-policy /tmp/policy_$${POLICY}.yaml \
             --project="$PROJECT_ID" \
-            && echo "  ✅ $POLICY" \
-            || echo "  ⚠️  $POLICY skipped (insufficient permissions — pre-applied via ADC)"
+            && echo "  ✅ $$POLICY" \
+            || echo "  ⚠️  $$POLICY skipped (pre-applied via elevated ADC — non-fatal)"
         done
 
   # 4. Deploy all 12 Reasoning Engines to Vertex AI
