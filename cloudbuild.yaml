@@ -8,10 +8,20 @@ steps:
       - '-c'
       - |
         if [ -d .git ]; then
+          echo "Git repo detected — initializing submodules..."
           git submodule init
           git submodule update --init --recursive
         else
-          echo "No .git directory found (manual submission). Skipping submodule update."
+          echo "No .git directory (manual build via gcloud builds submit)."
+          echo "Cloning agentic-lens submodule directly from GitHub..."
+          rm -rf agentic-lens
+          git clone https://github.com/mgaur10/agentic-lens.git agentic-lens
+          echo "Submodule clone complete."
+          echo "Syncing app bundle from submodule into agentic-lens/app/..."
+          bash agentic-lens/sync-app-bundle.sh 2>/dev/null || \
+            rsync -a --delete agentic-lens/ agentic-lens/app/agentic-lens/ \
+              --exclude='.git' --exclude='app/' 2>/dev/null || \
+            echo "Sync skipped — app bundle may already be present in source upload."
         fi
 
   # =========================================================================
