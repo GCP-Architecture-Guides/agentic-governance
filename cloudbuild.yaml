@@ -38,9 +38,39 @@ steps:
     args: ['validate']
 
   # 3a. Apply Terraform Configuration (provisions networks, SWP, dashboards, and metrics with alerts disabled)
+  # NOTE: Excludes org monitored projects — those require cross-project IAM and run separately below
   - name: 'hashicorp/terraform:1.5.7'
     id: 'tf-apply-metrics'
-    args: ['apply', '-var-file=envs/$PROJECT_ID.terraform.tfvars', '-var=enable_token_alerts=false', '-var=enable_model_armor_security_alerts=false', '-var=iap_client_id=$_IAP_CLIENT_ID', '-var=iap_client_secret=$_IAP_CLIENT_SECRET', '-auto-approve']
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        terraform apply \
+          -var-file=envs/$PROJECT_ID.terraform.tfvars \
+          -var=enable_token_alerts=false \
+          -var=enable_model_armor_security_alerts=false \
+          -var=iap_client_id=$_IAP_CLIENT_ID \
+          -var=iap_client_secret=$_IAP_CLIENT_SECRET \
+          -exclude='module.org_observability[0].google_monitoring_monitored_project.member' \
+          -auto-approve
+
+  # 3a-ii. Best-effort: add external projects to org metrics scope (requires cross-project IAM)
+  # Uses || true so a 403 on external projects does NOT fail the build
+  - name: 'hashicorp/terraform:1.5.7'
+    id: 'tf-link-org-projects'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        echo "Attempting to link org monitored projects (best-effort — 403s are non-fatal)..."
+        terraform apply \
+          -var-file=envs/$PROJECT_ID.terraform.tfvars \
+          -var=enable_token_alerts=false \
+          -var=enable_model_armor_security_alerts=false \
+          -var=iap_client_id=$_IAP_CLIENT_ID \
+          -var=iap_client_secret=$_IAP_CLIENT_SECRET \
+          -target='module.org_observability[0].google_monitoring_monitored_project.member' \
+          -auto-approve || echo "WARNING: Org project linking failed (likely cross-project IAM). Skipping."
 
   # 3b. Wait for Cloud Monitoring to index newly created metrics
   - name: 'google/cloud-sdk:slim'
@@ -55,7 +85,16 @@ steps:
   # 3c. Apply Terraform Configuration (enables and creates the alert policies)
   - name: 'hashicorp/terraform:1.5.7'
     id: 'tf-apply-alerts'
-    args: ['apply', '-var-file=envs/$PROJECT_ID.terraform.tfvars', '-var=iap_client_id=$_IAP_CLIENT_ID', '-var=iap_client_secret=$_IAP_CLIENT_SECRET', '-auto-approve']
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        terraform apply \
+          -var-file=envs/$PROJECT_ID.terraform.tfvars \
+          -var=iap_client_id=$_IAP_CLIENT_ID \
+          -var=iap_client_secret=$_IAP_CLIENT_SECRET \
+          -exclude='module.org_observability[0].google_monitoring_monitored_project.member' \
+          -auto-approve
 
   # =========================================================================
   # PHASE 2: Reasoning Engine Deployments (Vertex AI)
