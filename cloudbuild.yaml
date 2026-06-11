@@ -285,6 +285,11 @@ steps:
         echo "Gateway resource names:  ingress=$$INGRESS_FULL  egress=$$EGRESS_FULL"
         .venv/bin/python /workspace/scripts/inject_gateway_config.py "$$INGRESS_FULL" "$$EGRESS_FULL" "agentic-lens/agents"
 
+        # Export gateway env vars — the .pth monkey-patch reads these at Python startup
+        # so they must be in the environment before any 'adk' subprocess is spawned.
+        export AGENT_GATEWAY_INGRESS="$$INGRESS_FULL"
+        export AGENT_GATEWAY_EGRESS="$$EGRESS_FULL"
+
         # PATCH THE VERTEXAI SDK to redirect create_reasoning_engine gRPC calls
         # to REST API calls that include the 3 required org policy fields:
         #
@@ -297,11 +302,10 @@ steps:
         #   3. spec.deploymentSpec.env with 3 OTEL vars
         #      (customConstraints/custom.enforceReasoningEngineOtelConfig)
         #
-        # WHY PATCH: The gRPC DeploymentSpec proto does NOT have agentGatewayConfig.
-        # The REST API v1beta1 DOES accept spec.deploymentSpec.agentGatewayConfig.
-        # The patch converts the proto → JSON dict, injects the required fields,
-        # then makes the REST call. The LRO is polled directly.
-        echo "Patching vertexai SDK to inject gateway config into REST creates..."
+        # HOW: Writes _gateway_patch.py + _gateway_patch.pth into venv site-packages.
+        # Python auto-processes .pth files containing 'import ...' at startup, so the
+        # monkey-patch applies before any ADK/SDK code runs — for ALL Python subprocesses.
+        echo "Injecting gateway REST patch into venv via .pth file..."
         .venv/bin/python /workspace/scripts/patch_sdk_for_rest_create.py \
           --ingress "$$INGRESS_FULL" \
           --egress  "$$EGRESS_FULL" \
@@ -315,9 +319,10 @@ steps:
         # Use DEPLOY_PARALLEL=1 for PRD to serialize deployments and avoid the race condition.
         # DEV also uses DEPLOY_PARALLEL=1: it always starts from 0 existing engines, so all 12
         # agents must CREATE (not update) concurrently — which triggers the same code 13 issue.
-        # QA keeps DEPLOY_PARALLEL=2 since most runs UPDATE existing engines (faster, no race).
+        # QA keeps DEPLOY_PARALLEL=2 since most runs UPDATE existing engines (faster, no race)
         if [ "$PROJECT_ID" = "agentic-security-prd" ] || [ "$PROJECT_ID" = "agentic-security-dev" ]; then
           DEPLOY_PARALLEL=1 ./deploy.sh
+
         else
           DEPLOY_PARALLEL=2 ./deploy.sh
         fi
