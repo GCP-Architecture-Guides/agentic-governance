@@ -239,41 +239,39 @@ def _apply():
 
     try:
         from google.auth.transport.requests import AuthorizedSession as _ASession
-        _orig_request = _ASession.request
+        _orig_send = _ASession.send
 
-        def _patched_request(self, method, url, **kwargs):
-            url_str = str(url)
-            if (method.upper() == "POST" and "reasoningEngines" in url_str):
-                # Extract body (may be in 'data', 'json', or 'content' kwarg)
-                raw = kwargs.get("data") or kwargs.get("json") or kwargs.get("content")
-                body = None
-                if isinstance(raw, (bytes, bytearray)):
-                    try: body = _json.loads(raw)
-                    except Exception: pass
-                elif isinstance(raw, str):
-                    try: body = _json.loads(raw)
-                    except Exception: pass
-                elif isinstance(raw, dict):
-                    body = raw
-                if body is not None:
-                    body = _inject_gateway(body, url_str)
-                    encoded = _json.dumps(body).encode()
-                    kwargs["data"] = encoded
-                    kwargs.pop("json", None)
-                    kwargs.pop("content", None)
-                    # Rebuild headers: strip stale Content-Length/Content-Type
-                    # (case-insensitive) and set correct values for new body
-                    old_hdrs = dict(kwargs.get("headers", {}) or {})
-                    headers = {k: v for k, v in old_hdrs.items()
-                               if k.lower() not in
-                               ("content-length", "content-type")}
-                    headers["Content-Type"]   = "application/json"
-                    headers["Content-Length"] = str(len(encoded))
-                    kwargs["headers"] = headers
-            return _orig_request(self, method, url, **kwargs)
+        def _patched_send(self, request, **kwargs):
+            # `request` is a PreparedRequest — .body and .headers are FINAL here.
+            # Patching send() is the only guaranteed place where Content-Length
+            # is already computed from the original body and can be corrected
+            # after we inject our extra fields.
+            url_str = str(request.url)
+            if (request.method.upper() == "POST" and
+                    "reasoningEngines" in url_str):
+                try:
+                    raw_body = request.body
+                    if isinstance(raw_body, bytes):
+                        body = _json.loads(raw_body)
+                    elif isinstance(raw_body, str):
+                        body = _json.loads(raw_body)
+                    else:
+                        body = None
 
-        _ASession.request = _patched_request
-        print("[gateway_patch] Patched AuthorizedSession.request (transport level)",
+                    if body is not None:
+                        body = _inject_gateway(body, url_str)
+                        encoded = _json.dumps(body).encode()
+                        # Mutate the PreparedRequest in-place
+                        request.body = encoded
+                        request.headers["Content-Length"] = str(len(encoded))
+                        request.headers["Content-Type"]   = "application/json"
+                except Exception as exc:
+                    print(f"[gateway_patch] send() injection failed: {exc}",
+                          file=_sys.stderr, flush=True)
+            return _orig_send(self, request, **kwargs)
+
+        _ASession.send = _patched_send
+        print("[gateway_patch] Patched AuthorizedSession.send (PreparedRequest level)",
               file=_sys.stderr, flush=True)
     except Exception as exc:
         print(f"[gateway_patch] AuthorizedSession patch failed: {exc}",
