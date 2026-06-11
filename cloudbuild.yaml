@@ -309,7 +309,7 @@ steps:
         .venv/bin/python /workspace/scripts/patch_sdk_for_rest_create.py \
           --ingress "$$INGRESS_FULL" \
           --egress  "$$EGRESS_FULL" \
-          --venv ".venv"
+          --venv "agentic-lens/.venv"
 
         # Apply the Vertex Gateway Wrapper to all agents to bypass the SDK 1.75 memory interceptor and expose 'query'
         .venv/bin/python scripts/patch_agent_wrapper.py
