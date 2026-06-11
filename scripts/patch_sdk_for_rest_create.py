@@ -263,8 +263,17 @@ def _apply():
                         encoded = _json.dumps(body).encode()
                         # Mutate the PreparedRequest in-place
                         request.body = encoded
-                        request.headers["Content-Length"] = str(len(encoded))
-                        request.headers["Content-Type"]   = "application/json"
+                        # Delete Content-Length entirely — urllib3 will
+                        # recompute it from len(body) before sending.
+                        # This avoids any case-sensitivity / timing race
+                        # with http.client's Content-Length check.
+                        request.headers.pop("Content-Length", None)
+                        request.headers.pop("content-length", None)
+                        request.headers["Content-Type"] = "application/json"
+                        print(
+                            f"[gateway_patch] body={len(encoded)}B "
+                            f"cl_after={request.headers.get('Content-Length','(removed)')}",
+                            file=_sys.stderr, flush=True)
                 except Exception as exc:
                     print(f"[gateway_patch] send() injection failed: {exc}",
                           file=_sys.stderr, flush=True)
