@@ -285,34 +285,21 @@ steps:
         [ -z "$$INGRESS_GW" ] && INGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/gemini-corp-ingress-gateway"
         [ -z "$$EGRESS_GW" ] && EGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/gemini-corp-egress-gateway"
         echo "Injecting gateway config: ingress=$$INGRESS_FULL egress=$$EGRESS_FULL"
-        python3 - <<PYEOF
-import json, glob, os
-ingress = "$$INGRESS_FULL"
-egress  = "$$EGRESS_FULL"
-gateway_cfg = {
-    "client_to_agent_config":  {"agent_gateway": ingress},
-    "agent_to_anywhere_config": {"agent_gateway": egress}
-}
-default_cfg = {
-    "identity_type": "AGENT_IDENTITY",
-    "min_instances": 1,
-    "max_instances": 2,
-    "resource_limits": {"cpu": "4", "memory": "8Gi"},
-    "container_concurrency": 2
-}
-for agent_dir in sorted(glob.glob("agentic-lens/agents/*/")):
-    agent = os.path.basename(agent_dir.rstrip("/"))
-    if "_staged" in agent:
-        continue
-    cfg_path = os.path.join(agent_dir, ".agent_engine_config.json")
-    try:
-        d = json.load(open(cfg_path))
-    except Exception:
-        d = dict(default_cfg)
-    d["agent_gateway_config"] = gateway_cfg
-    json.dump(d, open(cfg_path, "w"), indent=2)
-    print(f"  gateway config set: {agent}")
-PYEOF
+        python3 -c "
+import json, glob, os, sys
+ingress = sys.argv[1]; egress = sys.argv[2]
+gw = {'client_to_agent_config': {'agent_gateway': ingress}, 'agent_to_anywhere_config': {'agent_gateway': egress}}
+dflt = {'identity_type': 'AGENT_IDENTITY', 'min_instances': 1, 'max_instances': 2, 'resource_limits': {'cpu': '4', 'memory': '8Gi'}, 'container_concurrency': 2}
+for d_path in sorted(glob.glob('agentic-lens/agents/*/') ):
+    ag = os.path.basename(d_path.rstrip('/'))
+    if '_staged' in ag: continue
+    p = os.path.join(d_path, '.agent_engine_config.json')
+    try: cfg = json.load(open(p))
+    except: cfg = dict(dflt)
+    cfg['agent_gateway_config'] = gw
+    json.dump(cfg, open(p, 'w'), indent=2)
+    print('  gateway config set:', ag)
+" "$$INGRESS_FULL" "$$EGRESS_FULL"
 
         # Apply the Vertex Gateway Wrapper to all agents to bypass the SDK 1.75 memory interceptor and expose 'query'
         .venv/bin/python scripts/patch_agent_wrapper.py
