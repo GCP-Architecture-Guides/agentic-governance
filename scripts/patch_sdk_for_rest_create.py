@@ -184,18 +184,47 @@ def _apply():
         print("[gateway_patch] No AGENT_GATEWAY_INGRESS/EGRESS — skipping.",
               file=_sys.stderr, flush=True)
         return
-    try:
-        # Target the actual api_client class used by vertexai.agent_engines:
-        # sdk_resource.api_client is a ReasoningEngineClientWithOverride instance.
-        from google.cloud.aiplatform.utils import ReasoningEngineClientWithOverride as _Cls
-        _Cls.create_reasoning_engine = _rest_create
-        print("[gateway_patch] Patched ReasoningEngineClientWithOverride"
-              ".create_reasoning_engine", file=_sys.stderr, flush=True)
-    except Exception as exc:
-        print(f"[gateway_patch] Patch failed: {exc}", file=_sys.stderr, flush=True)
+
+    patched = []
+
+    # PRIMARY: The actual gRPC client class that api_client delegates to.
+    # ClientWithOverride.__getattr__ forwards to self._gapic_client, which is
+    # an instance of ReasoningEngineServiceClient (v1beta1 GAPIC class).
+    # That class has create_reasoning_engine in its own __dict__, so patching
+    # the WRAPPER never intercepts — must patch the GAPIC class directly.
+    for module_path, class_name in [
+        ("google.cloud.aiplatform_v1beta1.services.reasoning_engine_service.client",
+         "ReasoningEngineServiceClient"),
+        ("google.cloud.aiplatform_v1beta1.services.reasoning_engine_service",
+         "ReasoningEngineServiceClient"),
+        # Fallback: also patch the v1 variant in case the venv uses v1
+        ("google.cloud.aiplatform_v1.services.reasoning_engine_service.client",
+         "ReasoningEngineServiceClient"),
+        ("google.cloud.aiplatform_v1.services.reasoning_engine_service",
+         "ReasoningEngineServiceClient"),
+        # Secondary: wrapper class (in case api_client is the wrapper itself)
+        ("google.cloud.aiplatform.utils",
+         "ReasoningEngineClientWithOverride"),
+    ]:
+        try:
+            import importlib
+            mod = importlib.import_module(module_path)
+            cls = getattr(mod, class_name)
+            cls.create_reasoning_engine = _rest_create
+            patched.append(f"{module_path}.{class_name}")
+            print(f"[gateway_patch] Patched {module_path}.{class_name}",
+                  file=_sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[gateway_patch] Skip {module_path}.{class_name}: {e}",
+                  file=_sys.stderr, flush=True)
+
+    if not patched:
+        print("[gateway_patch] WARNING: No class found to patch — org policy "
+              "will likely fail.", file=_sys.stderr, flush=True)
 
 
 _apply()
+
 '''
 
 
