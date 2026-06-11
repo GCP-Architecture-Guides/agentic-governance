@@ -275,18 +275,38 @@ steps:
             "s|gemini-corp-egress-gateway|$$EGRESS_GW|g; s|main-egress-agw-v2|$$EGRESS_GW|g" {} +
         fi
 
-        # Ensure ALL agents have agent_gateway_config (required by org policy:
-        # customConstraints/custom.enforceReasoningEngineAgentGatewayConfig).
-        # .agent_engine_config.json is gitignored — the git clone in step-0 wipes
-        # these files. This step recreates / updates them with the correct gateway
-        # resource names for the target environment before deploy.sh runs.
+        # Ensure ALL agents have agent_gateway_config in .agent_engine_config.json
+        # (belt-and-suspenders: inject_gateway_config.py populates these files so
+        #  deploy.sh can read resource limits / env etc from them correctly)
         INGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/$$INGRESS_GW"
         EGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/$$EGRESS_GW"
         [ -z "$$INGRESS_GW" ] && INGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/gemini-corp-ingress-gateway"
         [ -z "$$EGRESS_GW" ] && EGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/gemini-corp-egress-gateway"
-        echo "Injecting gateway config into all agents: ingress=$$INGRESS_FULL egress=$$EGRESS_FULL"
+        echo "Gateway resource names:  ingress=$$INGRESS_FULL  egress=$$EGRESS_FULL"
         .venv/bin/python /workspace/scripts/inject_gateway_config.py "$$INGRESS_FULL" "$$EGRESS_FULL" "agentic-lens/agents"
 
+        # PRE-CREATE lightweight Reasoning Engines via REST API with clientToAgentConfig +
+        # agentToAnywhereConfig in deploymentSpec.
+        #
+        # WHY: The ADK CLI uses the old vertexai.agent_engines gRPC SDK which cannot set
+        # these fields (proto version doesn't include them). The org policy
+        # customConstraints/custom.enforceReasoningEngineAgentGatewayConfig blocks every
+        # CREATE that lacks these fields.
+        #
+        # STRATEGY:
+        #   1. pre_create_gateway_engines.py → REST API CREATE with gateway config
+        #      → Org policy sees gateway config → PASSES
+        #   2. deploy.sh updates these pre-created engines with actual agent code.
+        #      The UPDATE only sends fields in its update_mask (not gateway config),
+        #      so gateway config is PRESERVED via proto field-mask semantics.
+        echo "Pre-creating engines with gateway config via REST API..."
+        python3 /workspace/scripts/pre_create_gateway_engines.py \
+          --project "$PROJECT_ID" \
+          --location "$_REGION" \
+          --ingress "$$INGRESS_FULL" \
+          --egress  "$$EGRESS_FULL" \
+          --agents-dir "agentic-lens/agents" \
+          --out-dir "/workspace/engine_ids"
 
         # Apply the Vertex Gateway Wrapper to all agents to bypass the SDK 1.75 memory interceptor and expose 'query'
         .venv/bin/python scripts/patch_agent_wrapper.py
