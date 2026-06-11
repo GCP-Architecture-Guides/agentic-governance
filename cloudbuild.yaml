@@ -275,6 +275,45 @@ steps:
             "s|gemini-corp-egress-gateway|$$EGRESS_GW|g; s|main-egress-agw-v2|$$EGRESS_GW|g" {} +
         fi
 
+        # Ensure ALL agents have agent_gateway_config (required by org policy:
+        # customConstraints/custom.enforceReasoningEngineAgentGatewayConfig).
+        # .agent_engine_config.json is gitignored — the git clone in step-0 wipes
+        # these files. This step recreates / updates them with the correct gateway
+        # resource names for the target environment before deploy.sh runs.
+        INGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/$$INGRESS_GW"
+        EGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/$$EGRESS_GW"
+        [ -z "$$INGRESS_GW" ] && INGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/gemini-corp-ingress-gateway"
+        [ -z "$$EGRESS_GW" ] && EGRESS_FULL="projects/$PROJECT_ID/locations/$_REGION/agentGateways/gemini-corp-egress-gateway"
+        echo "Injecting gateway config: ingress=$$INGRESS_FULL egress=$$EGRESS_FULL"
+        python3 - <<PYEOF
+import json, glob, os
+ingress = "$$INGRESS_FULL"
+egress  = "$$EGRESS_FULL"
+gateway_cfg = {
+    "client_to_agent_config":  {"agent_gateway": ingress},
+    "agent_to_anywhere_config": {"agent_gateway": egress}
+}
+default_cfg = {
+    "identity_type": "AGENT_IDENTITY",
+    "min_instances": 1,
+    "max_instances": 2,
+    "resource_limits": {"cpu": "4", "memory": "8Gi"},
+    "container_concurrency": 2
+}
+for agent_dir in sorted(glob.glob("agentic-lens/agents/*/")):
+    agent = os.path.basename(agent_dir.rstrip("/"))
+    if "_staged" in agent:
+        continue
+    cfg_path = os.path.join(agent_dir, ".agent_engine_config.json")
+    try:
+        d = json.load(open(cfg_path))
+    except Exception:
+        d = dict(default_cfg)
+    d["agent_gateway_config"] = gateway_cfg
+    json.dump(d, open(cfg_path, "w"), indent=2)
+    print(f"  gateway config set: {agent}")
+PYEOF
+
         # Apply the Vertex Gateway Wrapper to all agents to bypass the SDK 1.75 memory interceptor and expose 'query'
         .venv/bin/python scripts/patch_agent_wrapper.py
 
