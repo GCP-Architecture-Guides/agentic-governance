@@ -261,9 +261,14 @@ def _apply():
                     kwargs["data"] = encoded
                     kwargs.pop("json", None)
                     kwargs.pop("content", None)
-                    # Ensure Content-Type header is set
-                    headers = kwargs.get("headers", {}) or {}
-                    headers["Content-Type"] = "application/json"
+                    # Rebuild headers: strip stale Content-Length/Content-Type
+                    # (case-insensitive) and set correct values for new body
+                    old_hdrs = dict(kwargs.get("headers", {}) or {})
+                    headers = {k: v for k, v in old_hdrs.items()
+                               if k.lower() not in
+                               ("content-length", "content-type")}
+                    headers["Content-Type"]   = "application/json"
+                    headers["Content-Length"] = str(len(encoded))
                     kwargs["headers"] = headers
             return _orig_request(self, method, url, **kwargs)
 
