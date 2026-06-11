@@ -350,7 +350,9 @@ resource "google_model_armor_template" "security_high" {
   filter_config {
     pi_and_jailbreak_filter_settings {
       filter_enforcement = "ENABLED"
-      confidence_level   = "HIGH"
+      # MEDIUM_AND_ABOVE catches obfuscated jailbreaks (character reassembly,
+      # euphemistic definitions, fake "stress testing") that score below HIGH.
+      confidence_level   = "MEDIUM_AND_ABOVE"
     }
     sdp_settings {
       advanced_config {
@@ -364,19 +366,19 @@ resource "google_model_armor_template" "security_high" {
     rai_settings {
       rai_filters {
         filter_type      = "HATE_SPEECH"
-        confidence_level = "HIGH"
+        confidence_level = "MEDIUM_AND_ABOVE"
       }
       rai_filters {
         filter_type      = "HARASSMENT"
-        confidence_level = "HIGH"
+        confidence_level = "MEDIUM_AND_ABOVE"
       }
       rai_filters {
         filter_type      = "SEXUALLY_EXPLICIT"
-        confidence_level = "HIGH"
+        confidence_level = "MEDIUM_AND_ABOVE"
       }
       rai_filters {
         filter_type      = "DANGEROUS"
-        confidence_level = "HIGH"
+        confidence_level = "MEDIUM_AND_ABOVE"
       }
     }
   }
@@ -393,7 +395,10 @@ resource "google_network_services_authz_extension" "ma_extension" {
   location    = var.location
   project     = var.project_id
   service     = "modelarmor.us-central1.rep.googleapis.com"
-  timeout     = "1s"
+  # 3s gives Model Armor enough time to evaluate complex/long prompts.
+  # With failOpen=false (default), a timeout → request denied (safe but UX impact).
+  # 1s was too short for obfuscated multi-step prompts.
+  timeout     = "3s"
 
   metadata = {
     model_armor_settings = jsonencode([
