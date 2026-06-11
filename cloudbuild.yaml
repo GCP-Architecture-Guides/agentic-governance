@@ -344,6 +344,7 @@ steps:
         EVENTS_ID=$(cat /workspace/events_engine_id.txt 2>/dev/null || echo "")
 
         EXTRA_ENVS="GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=$_REGION,AGENTIC_LENS_SUPERVISOR_ENGINE=$$SUPERVISOR_ENGINE,PYTHONHTTPSVERIFY=0"
+        EXTRA_ENVS="$$EXTRA_ENVS,AGENT_ENGINE_SUPERVISOR_TIMEOUT_S=240,AGENT_ENGINE_DEPARTMENT_TIMEOUT_S=840"
         [[ -n "$$CHAT_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,CHAT_ENGINE_ID=$$CHAT_ID"
         [[ -n "$$ENG_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,ENG_ENGINE_ID=$$ENG_ID"
         [[ -n "$$XRAY_ID" ]] && EXTRA_ENVS="$$EXTRA_ENVS,XRAY_ENGINE_ID=$$XRAY_ID"
@@ -356,6 +357,8 @@ steps:
           --subnet="gemini-corp-swp-subnet" \
           --vpc-egress="all-traffic" \
           --ingress="all" \
+          --memory=1Gi \
+          --cpu=2 \
           --iap \
           --allow-unauthenticated \
           --set-env-vars="$$EXTRA_ENVS" \
