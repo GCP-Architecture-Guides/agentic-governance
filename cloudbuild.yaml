@@ -204,16 +204,13 @@ steps:
         export ORG_ID="$_ORG_ID"
         export SKIP_PREFLIGHT=1
         # SKIP_EXISTING=1: skip agents that already exist (preserves engine IDs + IAM bindings).
-        # To force-update specific agents, pass _FORCE_REDEPLOY=supervisor,chat (or 'all') as a substitution.
-        # SKIP_EXISTING=0 (full redeploy) should only be used for greenfield / disaster-recovery builds.
-        FORCE_LIST="${_FORCE_REDEPLOY:-}"
-        if [ "$$FORCE_LIST" = "all" ]; then
+        # To force-update specific agents, pass _FORCE_REDEPLOY=all (full redeploy) as a substitution.
+        # Leave _FORCE_REDEPLOY empty (default) to only deploy NEW agents and skip existing ones.
+        if [ "$_FORCE_REDEPLOY" = "all" ]; then
           export SKIP_EXISTING=0
         else
           export SKIP_EXISTING=1
-          # For partial updates, deploy.sh will still pick up --agent_engine_id for in-place updates.
-          # Individual agents listed in FORCE_LIST are re-deployed by passing them as AGENTS_OVERRIDE.
-          [ -n "$$FORCE_LIST" ] && export AGENTS_OVERRIDE="$$FORCE_LIST"
+          [ -n "$_FORCE_REDEPLOY" ] && export AGENTS_OVERRIDE="$_FORCE_REDEPLOY"
         fi
 
         # Pre-deploy cleanup: delete stuck/UNKNOWN engines from prior failed builds.
