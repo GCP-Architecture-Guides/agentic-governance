@@ -185,24 +185,141 @@ def _apply():
               file=_sys.stderr, flush=True)
         return
 
-    patched = []
+    # ------------------------------------------------------------------ #
+    # PRIMARY: Transport-level HTTP interception                           #
+    # google-cloud-aiplatform REST transport uses AuthorizedSession for    #
+    # ALL HTTP calls.  Patching at this layer catches every               #
+    # CreateReasoningEngine call regardless of inner class structure.      #
+    # ------------------------------------------------------------------ #
+    def _inject_gateway(body, url):
+        """Inject org-policy fields into a CreateReasoningEngine body."""
+        spec = body.setdefault("spec", {})
+        spec["identityType"] = "AGENT_IDENTITY"
+        ds = spec.setdefault("deploymentSpec", {})
+        ds["agentGatewayConfig"] = {
+            "clientToAgentConfig":   {"agentGateway": _INGRESS},
+            "agentToAnywhereConfig": {"agentGateway": _EGRESS},
+        }
+        env  = ds.setdefault("env", [])
+        have = {e.get("name") for e in env}
+        for k, v in _OTEL_VARS:
+            if k not in have:
+                env.append({"name": k, "value": v})
+        print(f"[gateway_patch] Injected gateway config into POST {url}",
+              file=_sys.stderr, flush=True)
+        return body
 
-    # PRIMARY: The actual gRPC client class that api_client delegates to.
-    # ClientWithOverride.__getattr__ forwards to self._gapic_client, which is
-    # an instance of ReasoningEngineServiceClient (v1beta1 GAPIC class).
-    # That class has create_reasoning_engine in its own __dict__, so patching
-    # the WRAPPER never intercepts — must patch the GAPIC class directly.
+    def _is_create_reasoning_engine(method, url):
+        """True if this is a CreateReasoningEngine REST call."""
+        return (
+            method.upper() == "POST"
+            and "reasoningEngines" in url
+            # exclude list/get (those end with resourceId or have ?)
+            and not url.rstrip("/").endswith("reasoningEngines") is False
+            and "?" not in url.split("reasoningEngines")[-1]
+            and not url.split("reasoningEngines")[-1].strip("/").isdigit()
+        )
+
+    # Simpler predicate: POST to a URL containing /reasoningEngines
+    # that does NOT have a resource-ID suffix or query params
+    def _is_create_re(method, url):
+        url_str = str(url)
+        if method.upper() != "POST":
+            return False
+        if "reasoningEngines" not in url_str:
+            return False
+        suffix = url_str.split("reasoningEngines", 1)[-1]
+        # Create: suffix is empty or just "/"
+        # Update: suffix is "/<id>" or "/<id>?..."
+        # List:   suffix is "" with GET
+        suffix = suffix.lstrip("/").split("?")[0]
+        # If suffix is a numeric ID → this is an UpdateReasoningEngine call
+        # We still want to inject gateway config on updates too
+        return True  # inject on ALL POST to reasoningEngines
+
+    try:
+        from google.auth.transport.requests import AuthorizedSession as _ASession
+        _orig_request = _ASession.request
+
+        def _patched_request(self, method, url, **kwargs):
+            url_str = str(url)
+            if (method.upper() == "POST" and "reasoningEngines" in url_str):
+                # Extract body (may be in 'data', 'json', or 'content' kwarg)
+                raw = kwargs.get("data") or kwargs.get("json") or kwargs.get("content")
+                body = None
+                if isinstance(raw, (bytes, bytearray)):
+                    try: body = _json.loads(raw)
+                    except Exception: pass
+                elif isinstance(raw, str):
+                    try: body = _json.loads(raw)
+                    except Exception: pass
+                elif isinstance(raw, dict):
+                    body = raw
+                if body is not None:
+                    body = _inject_gateway(body, url_str)
+                    encoded = _json.dumps(body).encode()
+                    kwargs["data"] = encoded
+                    kwargs.pop("json", None)
+                    kwargs.pop("content", None)
+                    # Ensure Content-Type header is set
+                    headers = kwargs.get("headers", {}) or {}
+                    headers["Content-Type"] = "application/json"
+                    kwargs["headers"] = headers
+            return _orig_request(self, method, url, **kwargs)
+
+        _ASession.request = _patched_request
+        print("[gateway_patch] Patched AuthorizedSession.request (transport level)",
+              file=_sys.stderr, flush=True)
+    except Exception as exc:
+        print(f"[gateway_patch] AuthorizedSession patch failed: {exc}",
+              file=_sys.stderr, flush=True)
+
+    # ------------------------------------------------------------------ #
+    # SECONDARY: Also try to patch httpx (used by some SDK versions)      #
+    # ------------------------------------------------------------------ #
+    try:
+        import httpx as _httpx
+        _orig_httpx_send = _httpx.Client.send
+
+        def _patched_httpx_send(self, request, **kwargs):
+            url_str = str(request.url)
+            if (request.method.upper() == "POST" and
+                    "reasoningEngines" in url_str):
+                try:
+                    body = _json.loads(request.content)
+                    body = _inject_gateway(body, url_str)
+                    encoded = _json.dumps(body).encode()
+                    # Rebuild request with new body
+                    request = _httpx.Request(
+                        method=request.method,
+                        url=request.url,
+                        headers=dict(request.headers),
+                        content=encoded,
+                    )
+                except Exception as e:
+                    print(f"[gateway_patch] httpx body injection failed: {e}",
+                          file=_sys.stderr, flush=True)
+            return _orig_httpx_send(self, request, **kwargs)
+
+        _httpx.Client.send = _patched_httpx_send
+        print("[gateway_patch] Patched httpx.Client.send (transport level)",
+              file=_sys.stderr, flush=True)
+    except Exception as exc:
+        print(f"[gateway_patch] httpx patch skipped: {exc}",
+              file=_sys.stderr, flush=True)
+
+    # ------------------------------------------------------------------ #
+    # BELT-AND-SUSPENDERS: patch known GAPIC client classes directly      #
+    # ------------------------------------------------------------------ #
     for module_path, class_name in [
         ("google.cloud.aiplatform_v1beta1.services.reasoning_engine_service.client",
          "ReasoningEngineServiceClient"),
         ("google.cloud.aiplatform_v1beta1.services.reasoning_engine_service",
          "ReasoningEngineServiceClient"),
-        # Fallback: also patch the v1 variant in case the venv uses v1
         ("google.cloud.aiplatform_v1.services.reasoning_engine_service.client",
          "ReasoningEngineServiceClient"),
         ("google.cloud.aiplatform_v1.services.reasoning_engine_service",
          "ReasoningEngineServiceClient"),
-        # Secondary: wrapper class (in case api_client is the wrapper itself)
         ("google.cloud.aiplatform.utils",
          "ReasoningEngineClientWithOverride"),
     ]:
@@ -211,16 +328,11 @@ def _apply():
             mod = importlib.import_module(module_path)
             cls = getattr(mod, class_name)
             cls.create_reasoning_engine = _rest_create
-            patched.append(f"{module_path}.{class_name}")
-            print(f"[gateway_patch] Patched {module_path}.{class_name}",
+            print(f"[gateway_patch] Patched {class_name} (class level)",
                   file=_sys.stderr, flush=True)
         except Exception as e:
-            print(f"[gateway_patch] Skip {module_path}.{class_name}: {e}",
+            print(f"[gateway_patch] Skip {class_name}: {e}",
                   file=_sys.stderr, flush=True)
-
-    if not patched:
-        print("[gateway_patch] WARNING: No class found to patch — org policy "
-              "will likely fail.", file=_sys.stderr, flush=True)
 
 
 _apply()
