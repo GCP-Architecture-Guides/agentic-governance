@@ -359,7 +359,6 @@ steps:
           --ingress="all" \
           --memory=1Gi \
           --cpu=2 \
-          --iap \
           --allow-unauthenticated \
           --set-env-vars="$$EXTRA_ENVS" \
           --quiet
