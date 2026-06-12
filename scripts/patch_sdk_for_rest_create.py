@@ -192,7 +192,15 @@ def _apply():
     # CreateReasoningEngine call regardless of inner class structure.      #
     # ------------------------------------------------------------------ #
     def _inject_gateway(body, url):
-        """Inject org-policy fields into a CreateReasoningEngine body."""
+        """Inject org-policy fields into a CreateReasoningEngine body.
+
+        Only injects identityType and agentGatewayConfig — the two fields
+        required by the org policy. OTEL env vars are NOT touched here because
+        the ADK already embeds them in the classMethods ZIP (read from
+        .agent_engine_config.json env_vars). Adding them again to
+        spec.deploymentSpec.env would create duplicates that Vertex AI rejects
+        with 400 INVALID_ARGUMENT: EnvVar names must be unique.
+        """
         spec = body.setdefault("spec", {})
         spec["identityType"] = "AGENT_IDENTITY"
         ds = spec.setdefault("deploymentSpec", {})
@@ -200,29 +208,12 @@ def _apply():
             "clientToAgentConfig":   {"agentGateway": _INGRESS},
             "agentToAnywhereConfig": {"agentGateway": _EGRESS},
         }
-        # Deduplicate existing env list — the body may already contain
-        # duplicate names from two sources:
-        #   1. inject_gateway_config.py writes vars to .agent_engine_config.json
-        #   2. ADK / SDK injects its own env vars
-        # The Vertex AI API rejects requests where env names are not unique.
-        # Strategy: last occurrence wins (preserves most-specific value).
-        raw_env = ds.get("env", [])
-        seen: dict = {}
-        for e in raw_env:
-            seen[e.get("name", "")] = e
-        ds["env"] = list(seen.values())
-
-        # Add OTEL / gateway vars only if not already present
-        have = set(seen.keys())
-        for k, v in _OTEL_VARS:
-            if k not in have:
-                ds["env"].append({"name": k, "value": v})
-                have.add(k)
-        print(f"[gateway_patch] Injected gateway config into POST {url} "
-              f"(env={len(ds['env'])} entries, deduped from {len(raw_env)})",
+        # Do NOT touch ds["env"] — OTEL vars come from the agent classMethods.
+        env_count = len(ds.get("env", []))
+        print(f"[gateway_patch] Injected identityType+agentGatewayConfig into "
+              f"POST {url} (existing env={env_count} untouched)",
               file=_sys.stderr, flush=True)
         return body
-
 
     def _is_create_reasoning_engine(method, url):
         """True if this is a CreateReasoningEngine REST call."""
