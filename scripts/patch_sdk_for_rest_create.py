@@ -301,12 +301,23 @@ def _apply():
                     body = _json.loads(request.content)
                     body = _inject_gateway(body, url_str)
                     encoded = _json.dumps(body).encode()
-                    # Rebuild request with new body
+                    # Strip Content-Length from headers — httpx recomputes
+                    # it from len(content) when building the new Request.
+                    # Keeping the old value causes Content-Length mismatch.
+                    clean_headers = {
+                        k: v for k, v in dict(request.headers).items()
+                        if k.lower() != "content-length"
+                    }
                     request = _httpx.Request(
                         method=request.method,
                         url=request.url,
-                        headers=dict(request.headers),
+                        headers=clean_headers,
                         content=encoded,
+                    )
+                    print(
+                        f"[gateway_patch] httpx body={len(encoded)}B "
+                        f"cl={request.headers.get('content-length','?')}",
+                        file=_sys.stderr, flush=True,
                     )
                 except Exception as e:
                     print(f"[gateway_patch] httpx body injection failed: {e}",
