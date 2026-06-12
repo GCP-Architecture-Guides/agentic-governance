@@ -200,14 +200,29 @@ def _apply():
             "clientToAgentConfig":   {"agentGateway": _INGRESS},
             "agentToAnywhereConfig": {"agentGateway": _EGRESS},
         }
-        env  = ds.setdefault("env", [])
-        have = {e.get("name") for e in env}
+        # Deduplicate existing env list — the body may already contain
+        # duplicate names from two sources:
+        #   1. inject_gateway_config.py writes vars to .agent_engine_config.json
+        #   2. ADK / SDK injects its own env vars
+        # The Vertex AI API rejects requests where env names are not unique.
+        # Strategy: last occurrence wins (preserves most-specific value).
+        raw_env = ds.get("env", [])
+        seen: dict = {}
+        for e in raw_env:
+            seen[e.get("name", "")] = e
+        ds["env"] = list(seen.values())
+
+        # Add OTEL / gateway vars only if not already present
+        have = set(seen.keys())
         for k, v in _OTEL_VARS:
             if k not in have:
-                env.append({"name": k, "value": v})
-        print(f"[gateway_patch] Injected gateway config into POST {url}",
+                ds["env"].append({"name": k, "value": v})
+                have.add(k)
+        print(f"[gateway_patch] Injected gateway config into POST {url} "
+              f"(env={len(ds['env'])} entries, deduped from {len(raw_env)})",
               file=_sys.stderr, flush=True)
         return body
+
 
     def _is_create_reasoning_engine(method, url):
         """True if this is a CreateReasoningEngine REST call."""
